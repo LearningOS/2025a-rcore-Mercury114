@@ -1,0 +1,53 @@
+(rustup target list | grep "riscv64gc-unknown-none-elf (installed)") || rustup target add riscv64gc-unknown-none-elf
+riscv64gc-unknown-none-elf (installed)
+cargo install cargo-binutils
+    Updating crates.io index
+     Ignored package `cargo-binutils v0.4.0` is already installed, use --force to override
+rustup component add rust-src
+info: component 'rust-src' is up to date
+rustup component add llvm-tools-preview
+info: component 'llvm-tools' for target 'x86_64-unknown-linux-gnu' is up to date
+make[1]: Entering directory '/oslab/user'
+     Removed 161 files, 3.4MiB total
+target/riscv64gc-unknown-none-elf/release/ch2b_bad_address target/riscv64gc-unknown-none-elf/release/ch2b_bad_instructions target/riscv64gc-unknown-none-elf/release/ch2b_bad_register target/riscv64gc-unknown-none-elf/release/ch2b_hello_world target/riscv64gc-unknown-none-elf/release/ch2b_power_3 target/riscv64gc-unknown-none-elf/release/ch2b_power_5 target/riscv64gc-unknown-none-elf/release/ch2b_power_7 target/riscv64gc-unknown-none-elf/release/ch3b_yield0 target/riscv64gc-unknown-none-elf/release/ch3b_yield1 target/riscv64gc-unknown-none-elf/release/ch3b_yield2
+   Compiling scopeguard v1.2.0
+   Compiling spin v0.7.1
+   Compiling bitflags v1.3.2
+   Compiling lock_api v0.4.6
+   Compiling buddy_system_allocator v0.6.0
+   Compiling spin v0.9.8
+   Compiling lazy_static v1.5.0
+   Compiling user_lib v0.1.0 (/oslab/user)
+    Finished `release` profile [optimized] target(s) in 1.16s
+   Compiling user_lib v0.1.0 (/oslab/user)
+    Finished `release` profile [optimized] target(s) in 0.37s
+   Compiling user_lib v0.1.0 (/oslab/user)
+    Finished `release` profile [optimized] target(s) in 0.38s
+   Compiling user_lib v0.1.0 (/oslab/user)
+    Finished `release` profile [optimized] target(s) in 0.38s
+   Compiling user_lib v0.1.0 (/oslab/user)
+    Finished `release` profile [optimized] target(s) in 0.40s
+   Compiling user_lib v0.1.0 (/oslab/user)
+    Finished `release` profile [optimized] target(s) in 0.40s
+   Compiling user_lib v0.1.0 (/oslab/user)
+    Finished `release` profile [optimized] target(s) in 0.40s
+   Compiling user_lib v0.1.0 (/oslab/user)
+    Finished `release` profile [optimized] target(s) in 0.40s
+   Compiling user_lib v0.1.0 (/oslab/user)
+    Finished `release` profile [optimized] target(s) in 0.41s
+   Compiling user_lib v0.1.0 (/oslab/user)
+    Finished `release` profile [optimized] target(s) in 0.41s
+[build.py] application ch2b_bad_address start with address 0x80400000
+[build.py] application ch2b_bad_instructions start with address 0x80420000
+[build.py] application ch2b_bad_register start with address 0x80440000
+[build.py] application ch2b_hello_world start with address 0x80460000
+[build.py] application ch2b_power_3 start with address 0x80480000
+[build.py] application ch2b_power_5 start with address 0x804a0000
+[build.py] application ch2b_power_7 start with address 0x804c0000
+[build.py] application ch3b_yield0 start with address 0x804e0000
+[build.py] application ch3b_yield1 start with address 0x80500000
+[build.py] application ch3b_yield2 start with address 0x80520000
+make[1]: Leaving directory '/oslab/user'
+Platform: qemu
+   Compiling os v0.1.0 (/oslab/os)
+    Finished `release` profile [optimized] target(s) in 0.40s
