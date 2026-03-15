@@ -300,6 +300,38 @@ impl MemorySet {
             false
         }
     }
+
+    /// mmap system call support
+    pub fn mmap(&mut self, start_va: VirtAddr, end_va: VirtAddr, permission: MapPermission) -> bool {
+        let start_vpn = start_va.floor();
+        let end_vpn = end_va.ceil();
+        // Check for overlap
+        for area in self.areas.iter() {
+            let area_start = area.vpn_range.get_start();
+            let area_end = area.vpn_range.get_end();
+            if start_vpn < area_end && end_vpn > area_start {
+                return false; // Collision detected
+            }
+        }
+        self.insert_framed_area(start_va, end_va, permission);
+        true
+    }
+
+    /// munmap system call support
+    pub fn munmap(&mut self, start_va: VirtAddr, end_va: VirtAddr) -> bool {
+        let start_vpn = start_va.floor();
+        let end_vpn = end_va.ceil();
+        // 寻找完全匹配的内存区域并移除
+        if let Some((idx, _)) = self.areas.iter().enumerate().find(|(_, area)| {
+            area.vpn_range.get_start() == start_vpn && area.vpn_range.get_end() == end_vpn
+        }) {
+            self.areas[idx].unmap(&mut self.page_table);
+            self.areas.remove(idx);
+            true
+        } else {
+            false
+        }
+    }
 }
 /// map area structure, controls a contiguous piece of virtual memory
 pub struct MapArea {

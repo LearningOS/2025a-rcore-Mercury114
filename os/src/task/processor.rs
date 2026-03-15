@@ -61,6 +61,10 @@ pub fn run_tasks() {
             let mut task_inner = task.inner_exclusive_access();
             let next_task_cx_ptr = &task_inner.task_cx as *const TaskContext;
             task_inner.task_status = TaskStatus::Running;
+            // Update stride before running (pass = BIG_STRIDE / priority)
+            // 先取出 priority，避免同时借用
+            let priority = task_inner.priority;
+            task_inner.stride.step(priority);
             // release coming task_inner manually
             drop(task_inner);
             // release coming task TCB manually
