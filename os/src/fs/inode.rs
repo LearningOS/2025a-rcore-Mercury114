@@ -4,7 +4,7 @@
 //!
 //! `UPSafeCell<OSInodeInner>` -> `OSInode`: for static `ROOT_INODE`,we
 //! need to wrap `OSInodeInner` into `UPSafeCell`
-use super::File;
+use super::{File, FileStatus, StatMode};  // 添加 FileStatus, StatMode
 use crate::drivers::BLOCK_DEVICE;
 use crate::mm::UserBuffer;
 use crate::sync::UPSafeCell;
@@ -40,8 +40,7 @@ impl OSInode {
     /// read all data from the inode
     pub fn read_all(&self) -> Vec<u8> {
         let mut inner = self.inner.exclusive_access();
-        let mut buffer: Vec<u8> = Vec::with_capacity(512);
-        buffer.resize(512, 0);
+        let mut buffer = [0u8; 512];
         let mut v: Vec<u8> = Vec::new();
         loop {
             let len = inner.inode.read_at(inner.offset, &mut buffer);
@@ -156,4 +155,43 @@ impl File for OSInode {
         }
         total_write_size
     }
+    fn status(&self) -> FileStatus {
+    let inner = self.inner.exclusive_access();
+    let inode = &inner.inode;
+    let inumber = inode.inode_id().into();
+    let mode = if inode.is_dir() {
+        StatMode::DIR
+    } else if inode.is_file() {
+        StatMode::FILE
+    } else {
+        unimplemented!();
+    };
+    let num_links = inode.links_count();
+    FileStatus {
+        inumber,
+        mode,
+        num_links,
+    }
+}
+}
+
+/// Create a link to file
+pub fn link_at(old_path: &str, new_path: &str) -> isize {
+   if let Some(_hard_link) = ROOT_INODE.link_at(old_path, new_path) {
+        return 0;
+   } else {
+        return -1;
+   }
+}
+
+/// Unlink a file
+pub fn unlink_at(path: &str) -> isize {
+    let Some(file) = ROOT_INODE.remove(path) else {
+        return -1;
+    };
+
+    if file.links_count() == 0 {
+        file.free();
+    }
+    0
 }
