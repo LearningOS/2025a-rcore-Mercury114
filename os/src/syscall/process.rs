@@ -2,11 +2,12 @@
 use alloc::sync::Arc;
 
 use crate::{
+    config::PAGE_SIZE,
     loader::get_app_data_by_name,
-    mm::{translated_refmut, translated_str},
+    mm::{translated_refmut, translated_str, MapPermission, VirtAddr},
     task::{
         add_task, current_task, current_user_token, exit_current_and_run_next,
-        suspend_current_and_run_next,
+        suspend_current_and_run_next, TaskControlBlock,
     },
 };
 
@@ -105,30 +106,64 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
 /// YOUR JOB: get time with second and microsecond
 /// HINT: You might reimplement it with virtual memory management.
 /// HINT: What if [`TimeVal`] is splitted by two pages ?
-pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
-    trace!(
-        "kernel:pid[{}] sys_get_time NOT IMPLEMENTED",
-        current_task().unwrap().pid.0
-    );
-    -1
+pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
+    trace!("kernel:pid[{}] sys_get_time", current_task().unwrap().pid.0);
+    let us = crate::timer::get_time_us();
+    if ts.is_null() {
+        return -1;
+    }
+    unsafe {
+        // 使用我们 util.rs 里的包装器安全处理可能跨页的指针
+        crate::util::UserSpacePtr::from(ts).write(TimeVal {
+            sec: us / 1_000_000,
+            usec: us % 1_000_000,
+        });
+    }
+    0
 }
 
 /// YOUR JOB: Implement mmap.
-pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
-    trace!(
-        "kernel:pid[{}] sys_mmap NOT IMPLEMENTED",
-        current_task().unwrap().pid.0
-    );
-    -1
+pub fn sys_mmap(start: usize, len: usize, port: usize) -> isize {
+    trace!("kernel:pid[{}] sys_mmap", current_task().unwrap().pid.0);
+    if start % PAGE_SIZE != 0 || len == 0 || port & !0x7 != 0 || port & 0x7 == 0 {
+        return -1;
+    }
+    
+    let task = current_task().unwrap();
+    let mut inner = task.inner_exclusive_access();
+    let start_va = VirtAddr::from(start);
+    let end_va = VirtAddr::from(start + len);
+    
+    let mut permission = MapPermission::U;
+    if port & 1 != 0 { permission |= MapPermission::R; }
+    if port & 2 != 0 { permission |= MapPermission::W; }
+    if port & 4 != 0 { permission |= MapPermission::X; }
+    
+    // 把这里的 start as isize 改成 0
+    if inner.memory_set.mmap(start_va, end_va, permission) {
+        0 
+    } else {
+        -1
+    }
 }
 
 /// YOUR JOB: Implement munmap.
-pub fn sys_munmap(_start: usize, _len: usize) -> isize {
-    trace!(
-        "kernel:pid[{}] sys_munmap NOT IMPLEMENTED",
-        current_task().unwrap().pid.0
-    );
-    -1
+pub fn sys_munmap(start: usize, len: usize) -> isize {
+    trace!("kernel:pid[{}] sys_munmap", current_task().unwrap().pid.0);
+    if start % PAGE_SIZE != 0 || len == 0 {
+        return -1;
+    }
+    
+    let task = current_task().unwrap();
+    let mut inner = task.inner_exclusive_access();
+    let start_va = VirtAddr::from(start);
+    let end_va = VirtAddr::from(start + len);
+    
+    if inner.memory_set.munmap(start_va, end_va) {
+        0
+    } else {
+        -1
+    }
 }
 
 /// change data segment size
@@ -143,19 +178,51 @@ pub fn sys_sbrk(size: i32) -> isize {
 
 /// YOUR JOB: Implement spawn.
 /// HINT: fork + exec =/= spawn
-pub fn sys_spawn(_path: *const u8) -> isize {
+pub fn sys_spawn(path: *const u8) -> isize {
     trace!(
-        "kernel:pid[{}] sys_spawn NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_spawn",
         current_task().unwrap().pid.0
     );
-    -1
+    
+    let token = current_user_token();
+    let path = translated_str(token, path);
+    
+    if let Some(data) = get_app_data_by_name(path.as_str()) {
+        let current_task = current_task().unwrap();
+        
+        // Create new task with new memory space (not fork)
+        let new_task = Arc::new(TaskControlBlock::new(data));
+        let new_pid = new_task.pid.0;
+        
+        // Set parent
+        new_task.inner_exclusive_access().parent = Some(Arc::downgrade(&current_task));
+        
+        // Add to parent's children
+        current_task.inner_exclusive_access().children.push(new_task.clone());
+        
+        // Add to ready queue
+        add_task(new_task);
+        
+        new_pid as isize
+    } else {
+        -1
+    }
 }
 
 // YOUR JOB: Set task priority.
-pub fn sys_set_priority(_prio: isize) -> isize {
+pub fn sys_set_priority(prio: isize) -> isize {
     trace!(
-        "kernel:pid[{}] sys_set_priority NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_set_priority",
         current_task().unwrap().pid.0
     );
-    -1
+    
+    use crate::task::Priority;
+    
+    if let Ok(priority) = Priority::try_from(prio) {
+        let task = current_task().unwrap();
+        task.inner_exclusive_access().priority = priority;
+        prio
+    } else {
+        -1
+    }
 }
