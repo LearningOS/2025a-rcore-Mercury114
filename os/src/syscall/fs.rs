@@ -1,7 +1,8 @@
 //! File and filesystem-related syscalls
-use crate::fs::{open_file, OpenFlags, Stat};
+use crate::fs::{open_file, link_at, unlink_at, OpenFlags, Stat};
 use crate::mm::{translated_byte_buffer, translated_str, UserBuffer};
 use crate::task::{current_task, current_user_token};
+use crate::util::UserSpacePtr;  // 新增
 
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("kernel:pid[{}] sys_write", current_task().unwrap().pid.0);
@@ -76,28 +77,47 @@ pub fn sys_close(fd: usize) -> isize {
 }
 
 /// YOUR JOB: Implement fstat.
-pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
+pub fn sys_fstat(fd: usize, st: *mut Stat) -> isize {
     trace!(
-        "kernel:pid[{}] sys_fstat NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_fstat(fd: {fd})",
         current_task().unwrap().pid.0
     );
-    -1
+
+    let task = current_task().unwrap();
+    let stat = {
+        let inner = task.inner_exclusive_access();
+        let Some(file) = &inner.fd_table[fd] else {
+            return -1;
+        };
+        file.status().into()
+    };
+    unsafe {
+        UserSpacePtr::from(st).write(stat);
+    }
+    0
 }
 
 /// YOUR JOB: Implement linkat.
-pub fn sys_linkat(_old_name: *const u8, _new_name: *const u8) -> isize {
+pub fn sys_linkat(old_path: *const u8, new_path: *const u8) -> isize {
+    let token = current_user_token();
+    let (old_path, new_path) = (
+        translated_str(token, old_path),
+        translated_str(token, new_path),
+    );
     trace!(
-        "kernel:pid[{}] sys_linkat NOT IMPLEMENTED",
+        r#"kernel:pid[{}] sys_linkat("{old_path}", "{new_path}")"#,
         current_task().unwrap().pid.0
     );
-    -1
+    link_at(&old_path, &new_path)
 }
 
 /// YOUR JOB: Implement unlinkat.
-pub fn sys_unlinkat(_name: *const u8) -> isize {
+pub fn sys_unlinkat(path_name: *const u8) -> isize {
+    let token = current_user_token();
+    let path_name = translated_str(token, path_name);
     trace!(
-        "kernel:pid[{}] sys_unlinkat NOT IMPLEMENTED",
+        r#"kernel:pid[{}] sys_unlinkat ("{path_name}")"#,
         current_task().unwrap().pid.0
     );
-    -1
+    unlink_at(&path_name)
 }
