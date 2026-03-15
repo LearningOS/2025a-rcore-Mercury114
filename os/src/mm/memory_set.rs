@@ -262,6 +262,52 @@ impl MemorySet {
             false
         }
     }
+
+    /// Implement mmap for current MemorySet
+    pub fn mmap(&mut self, start: usize, len: usize, port: usize) -> isize {
+        // 1. 检查页对齐和权限位合法性
+        if start % PAGE_SIZE != 0 || port & !0x7 != 0 || port & 0x7 == 0 {
+            return -1;
+        }
+        let start_va = VirtAddr::from(start);
+        let end_va = VirtAddr::from(start + len);
+        let start_vpn = start_va.floor();
+        let end_vpn = end_va.ceil();
+        
+        // 2. 检查是否与现有的 MapArea 存在区间重叠
+        for vpn in VPNRange::new(start_vpn, end_vpn) {
+            if self.translate(vpn).is_some() {
+                return -1; // overlapped
+            }
+        }
+        
+        // 3. 构建权限并插入一个新的 Framed 区域
+        let mut map_perm = MapPermission::U;
+        if (port & 1) != 0 { map_perm |= MapPermission::R; }
+        if (port & 2) != 0 { map_perm |= MapPermission::W; }
+        if (port & 4) != 0 { map_perm |= MapPermission::X; }
+        
+        self.insert_framed_area(start_va, end_va, map_perm);
+        0
+    }
+
+    /// Implement munmap for current MemorySet
+    pub fn munmap(&mut self, start: usize, _len: usize) -> isize {
+        if start % PAGE_SIZE != 0 {
+            return -1;
+        }
+        let start_vpn = VirtAddr::from(start).floor();
+        
+        // 题目保证了正确的 munmap 仅会对应一段由 mmap 申请的内存
+        // 所以我们直接在 areas 里面找到起始 VPN 匹配的 MapArea，把它移除并解映射即可
+        if let Some(idx) = self.areas.iter().position(|area| area.vpn_range.get_start() == start_vpn) {
+            let mut area = self.areas.remove(idx);
+            area.unmap(&mut self.page_table);
+            0
+        } else {
+            -1
+        }
+    }
 }
 /// map area structure, controls a contiguous piece of virtual memory
 pub struct MapArea {

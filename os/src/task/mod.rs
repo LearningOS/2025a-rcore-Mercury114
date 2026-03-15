@@ -153,6 +153,35 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+
+    /// 为当前任务映射一段虚拟内存
+    /// 
+    /// # 参数
+    /// * `start` - 起始虚拟地址
+    /// * `len` - 映射长度
+    /// * `port` - 权限标志位
+    /// 
+    /// # 返回值
+    /// 成功返回 0，失败返回 -1
+    pub fn mmap(&self, start: usize, len: usize, port: usize) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        inner.tasks[cur].memory_set.mmap(start, len, port)
+    }
+    
+    /// 为当前任务解除一段虚拟内存映射
+    /// 
+    /// # 参数
+    /// * `start` - 起始虚拟地址
+    /// * `len` - 解除映射的长度
+    /// 
+    /// # 返回值
+    /// 成功返回 0，失败返回 -1
+    pub fn munmap(&self, start: usize, len: usize) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        inner.tasks[cur].memory_set.munmap(start, len)
+    }
 }
 
 /// Run the first task in task list.
@@ -201,4 +230,14 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 /// Change the current 'Running' task's program break
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
+}
+
+/// mmap wrapper
+pub fn task_mmap(start: usize, len: usize, port: usize) -> isize {
+    TASK_MANAGER.mmap(start, len, port)
+}
+
+/// munmap wrapper
+pub fn task_munmap(start: usize, len: usize) -> isize {
+    TASK_MANAGER.munmap(start, len)
 }
