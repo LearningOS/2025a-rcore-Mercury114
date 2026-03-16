@@ -1,11 +1,12 @@
 //! Process management syscalls
 
 use crate::{
+    config::MAX_SYSCALL_NUM, //新增这行
     fs::{open_file, OpenFlags},
     mm::{translated_ref, translated_refmut, translated_str},
     task::{
         add_task, current_task, current_user_token, exit_current_and_run_next, pid2task,
-        suspend_current_and_run_next, SignalAction, SignalFlags, MAX_SIG,
+        suspend_current_and_run_next, SignalAction, SignalFlags, TaskStatus, MAX_SIG, //这里加上 TaskStatus
     },
 };
 use alloc::{string::String, sync::Arc, vec::Vec};
@@ -15,6 +16,17 @@ use alloc::{string::String, sync::Arc, vec::Vec};
 pub struct TimeVal {
     pub sec: usize,
     pub usec: usize,
+}
+
+/// Task information
+#[allow(dead_code)]
+pub struct TaskInfo {
+    /// Task status in it's life cycle
+    status: TaskStatus,
+    /// The numbers of syscall called by task
+    syscall_times: [u32; MAX_SYSCALL_NUM],
+    /// Total running time of task
+    time: usize,
 }
 
 pub fn sys_exit(exit_code: i32) -> ! {
@@ -138,6 +150,14 @@ pub fn sys_kill(pid: usize, signum: i32) -> isize {
 /// HINT: What if [`TimeVal`] is splitted by two pages ?
 pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
     trace!("kernel:pid[{}] sys_get_time NOT IMPLEMENTED", current_task().unwrap().pid.0);
+    -1
+}
+
+/// YOUR JOB: Finish sys_task_info to pass testcases
+/// HINT: You might reimplement it with virtual memory management.
+/// HINT: What if [`TaskInfo`] is splitted by two pages ?
+pub fn sys_task_info(_ti: *mut TaskInfo) -> isize {
+    trace!("kernel:pid[{}] sys_task_info NOT IMPLEMENTED", current_task().unwrap().pid.0);
     -1
 }
 
